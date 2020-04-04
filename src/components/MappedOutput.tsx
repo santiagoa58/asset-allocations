@@ -2,9 +2,9 @@ import React from "react";
 import { Output } from "./Output";
 import { Allocations } from "../utils/constants";
 
-interface FactorAllocations {
-  value: Allocations;
-  capM: Allocations;
+export interface FactorAllocations {
+  value: Omit<Allocations, "ticker">;
+  capM: Omit<Allocations, "ticker">;
 }
 
 export interface RegionAllocations {

@@ -4,8 +4,12 @@ import { Allocations } from "../utils/constants";
 const getFormattedNumber = (number: number, showAsPercent: boolean): string =>
   showAsPercent ? `${(number * 100).toFixed(2)}%` : number.toFixed(4);
 
+type OutputAllocations =
+  | Pick<Allocations, "large" | "mid" | "small">
+  | undefined;
+
 export const Output: React.FC<{
-  alloc: Allocations | undefined;
+  alloc: OutputAllocations;
   label: string;
   showAsPercent?: boolean;
 }> = props => {

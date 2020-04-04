@@ -1,10 +1,18 @@
-import { ETF_ALLOCATIONS, Allocations } from "../utils/constants";
+import {
+  ETF_ALLOCATIONS,
+  Allocations,
+  AllEtfAllocations,
+} from "../utils/constants";
 import { safeAdd } from "../utils/functions";
 import { Percentages } from "../App";
-import { RegionAllocations } from "../components/MappedOutput";
+import {
+  RegionAllocations,
+  FactorAllocations,
+} from "../components/MappedOutput";
 
-const getAllocations = (alloc: Allocations, percent: number): Allocations => {
+const mapAllocations = (alloc: Allocations, percent: number): Allocations => {
   return {
+    ...alloc,
     large: alloc.large * percent,
     mid: alloc.mid * percent,
     small: alloc.small * percent,
@@ -12,56 +20,158 @@ const getAllocations = (alloc: Allocations, percent: number): Allocations => {
   };
 };
 
+const getTotalAllocationsMap = (
+  etfAllocations: AllEtfAllocations,
+  percentages: Percentages,
+) => {
+  const totalMappedAllocations: Array<[string, Allocations]> = Object.entries(
+    etfAllocations,
+  ).map(([nextTicker, nextAlloc]) => {
+    const allocation = mapAllocations(
+      nextAlloc,
+      percentages[nextTicker as keyof AllEtfAllocations],
+    );
+    return [nextTicker, allocation];
+  });
+  return new Map(totalMappedAllocations);
+};
+
 export const getRegionAllocations = (
   percentages: Percentages,
 ): RegionAllocations => {
-  const vbr = getAllocations(ETF_ALLOCATIONS.VBR, percentages.vbr);
-  const iusv = getAllocations(ETF_ALLOCATIONS.IUSV, percentages.iusv);
-  const vwo = getAllocations(ETF_ALLOCATIONS.VWO, percentages.vwo);
-  const efv = getAllocations(ETF_ALLOCATIONS.EFV, percentages.efv);
-  const iemg = getAllocations(ETF_ALLOCATIONS.IEMG, percentages.iemg);
-  const schf = getAllocations(ETF_ALLOCATIONS.SCHF, percentages.schf);
-  const voo = getAllocations(ETF_ALLOCATIONS.VOO, percentages.voo);
-  const vti = getAllocations(ETF_ALLOCATIONS.VTI, percentages.vti);
-  const ftec = getAllocations(ETF_ALLOCATIONS.FTEC, percentages.ftec);
-  const ijs = getAllocations(ETF_ALLOCATIONS.IJS, percentages.ijs);
-
-  const usaValueAlloc: Allocations = {
-    large: safeAdd(vbr.large, iusv.large, ijs.large),
-    mid: safeAdd(vbr.mid, iusv.mid, ijs.mid),
-    small: safeAdd(
-      vbr.small,
-      iusv.small,
-      ijs.small,
-      iusv.micro,
-      ijs.micro,
-      vbr.micro,
-    ),
+  const totalAllocations = getTotalAllocationsMap(ETF_ALLOCATIONS, percentages);
+  const usaValueAlloc: FactorAllocations["value"] = {
+    large: 0,
+    mid: 0,
+    small: 0,
+    region: "USA",
+    factorType: "VALUE",
+  };
+  const usaCapMAlloc: FactorAllocations["capM"] = {
+    large: 0,
+    mid: 0,
+    small: 0,
+    region: "USA",
+    factorType: "CAP_M",
+  };
+  const foreignValueAlloc: FactorAllocations["value"] = {
+    large: 0,
+    mid: 0,
+    small: 0,
+    region: "FOREIGN_DEVELOPED",
+    factorType: "VALUE",
+  };
+  const foreignCapMAlloc: FactorAllocations["capM"] = {
+    large: 0,
+    mid: 0,
+    small: 0,
+    region: "FOREIGN_DEVELOPED",
+    factorType: "CAP_M",
+  };
+  const emergingCapMAlloc: FactorAllocations["capM"] = {
+    large: 0,
+    mid: 0,
+    small: 0,
+    region: "EMERGING_MARKETS",
+    factorType: "CAP_M",
   };
 
-  const usaCapMAlloc: Allocations = {
-    large: safeAdd(voo.large, vti.large, ftec.large),
-    mid: safeAdd(voo.mid, vti.mid, ftec.mid),
-    small: safeAdd(voo.small, vti.small, vti.micro, voo.micro, ftec.micro),
+  const emergingValueAlloc: FactorAllocations["value"] = {
+    large: 0,
+    mid: 0,
+    small: 0,
+    region: "EMERGING_MARKETS",
+    factorType: "VALUE",
   };
 
-  const foreignValueAlloc: Allocations = {
-    large: safeAdd(efv.large),
-    mid: safeAdd(efv.mid),
-    small: safeAdd(efv.small, efv.micro),
-  };
-
-  const foreignCapMAlloc: Allocations = {
-    large: safeAdd(schf.large),
-    mid: safeAdd(schf.mid),
-    small: safeAdd(schf.small, schf.micro),
-  };
-
-  const emergingCapMAlloc: Allocations = {
-    large: safeAdd(iemg.large, vwo.large),
-    mid: safeAdd(iemg.mid, vwo.mid),
-    small: safeAdd(iemg.small, vwo.small, iemg.micro, vwo.micro),
-  };
+  totalAllocations.forEach(allocation => {
+    switch (allocation.region) {
+      case "USA": {
+        if (allocation.factorType === "CAP_M") {
+          usaCapMAlloc.large = safeAdd(usaCapMAlloc.large, allocation.large);
+          usaCapMAlloc.mid = safeAdd(usaCapMAlloc.mid, allocation.mid);
+          usaCapMAlloc.small = safeAdd(
+            usaCapMAlloc.small,
+            allocation.small,
+            usaCapMAlloc.micro,
+            allocation.micro,
+          );
+          return;
+        }
+        usaValueAlloc.large = safeAdd(usaValueAlloc.large, allocation.large);
+        usaValueAlloc.mid = safeAdd(usaValueAlloc.mid, allocation.mid);
+        usaValueAlloc.small = safeAdd(
+          usaValueAlloc.small,
+          allocation.small,
+          usaValueAlloc.micro,
+          allocation.micro,
+        );
+        return;
+      }
+      case "FOREIGN_DEVELOPED": {
+        if (allocation.factorType === "CAP_M") {
+          foreignCapMAlloc.large = safeAdd(
+            foreignCapMAlloc.large,
+            allocation.large,
+          );
+          foreignCapMAlloc.mid = safeAdd(foreignCapMAlloc.mid, allocation.mid);
+          foreignCapMAlloc.small = safeAdd(
+            foreignCapMAlloc.small,
+            allocation.small,
+            foreignCapMAlloc.micro,
+            allocation.micro,
+          );
+          return;
+        }
+        foreignValueAlloc.large = safeAdd(
+          foreignValueAlloc.large,
+          allocation.large,
+        );
+        foreignValueAlloc.mid = safeAdd(foreignValueAlloc.mid, allocation.mid);
+        foreignValueAlloc.small = safeAdd(
+          foreignValueAlloc.small,
+          allocation.small,
+          foreignValueAlloc.micro,
+          allocation.micro,
+        );
+        return;
+      }
+      case "EMERGING_MARKETS": {
+        if (allocation.factorType === "CAP_M") {
+          emergingCapMAlloc.large = safeAdd(
+            emergingCapMAlloc.large,
+            allocation.large,
+          );
+          emergingCapMAlloc.mid = safeAdd(
+            emergingCapMAlloc.mid,
+            allocation.mid,
+          );
+          emergingCapMAlloc.small = safeAdd(
+            emergingCapMAlloc.small,
+            allocation.small,
+            emergingCapMAlloc.micro,
+            allocation.micro,
+          );
+          return;
+        }
+        emergingValueAlloc.large = safeAdd(
+          emergingValueAlloc.large,
+          allocation.large,
+        );
+        emergingValueAlloc.mid = safeAdd(
+          emergingValueAlloc.mid,
+          allocation.mid,
+        );
+        emergingValueAlloc.small = safeAdd(
+          emergingValueAlloc.small,
+          allocation.small,
+          emergingValueAlloc.micro,
+          allocation.micro,
+        );
+        return;
+      }
+    }
+  });
 
   return {
     usa: {
@@ -74,6 +184,7 @@ export const getRegionAllocations = (
     },
     emerging: {
       capM: emergingCapMAlloc,
+      value: emergingValueAlloc,
     },
   };
 };
